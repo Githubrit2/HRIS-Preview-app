@@ -1,0 +1,88 @@
+<!doctype html>
+<html>
+  <head><meta charset="utf-8"><title>HRIS Import Preview</title></head>
+  <body>
+    <h1>HRIS Import Preview</h1>
+    <form method="post" enctype="multipart/form-data">{% csrf_token %}
+      <input type="file" name="file" accept=".csv" required />
+      <label>Department: <input name="filter_department" value="{{ filters.department }}"/></label>
+      <label>Manager ID: <input name="filter_manager" value="{{ filters.manager }}"/></label>
+      <label>Show cycles only: <input type="checkbox" name="filter_cycles" {% if filters.cycles_only %}checked{% endif %}/></label>
+      <label>Sort by: <select name="sort_by"><option value="employee_id" {% if filters.sort_by == 'employee_id' %}selected{% endif %}>ID</option><option value="employee_name" {% if filters.sort_by == 'employee_name' %}selected{% endif %}>Name</option><option value="email" {% if filters.sort_by == 'email' %}selected{% endif %}>Email</option></select></label>
+      <label>Sample size (0=all): <input type="number" name="sample_size" min="0" value="{{ filters.sample_size }}"/></label>
+      <button type="submit">Upload</button>
+    </form>
+    <form method="post" action="/download-errors/" enctype="multipart/form-data">{% csrf_token %}
+      <input type="file" name="file" accept=".csv" required />
+      <button type="submit">Download errors (CSV)</button>
+    </form>
+    {% if error %}
+      <p style="color:red">Error: {{ error }}</p>
+    {% endif %}
+    {% if result %}
+      <h2>Summary</h2>
+      <ul>
+        <li>Total source rows: {{ result.total_rows }}</li>
+        <li>Accepted for analysis: {{ result.accepted|length }}</li>
+        <li>Rows with errors: {{ result.errors|length }}</li>
+        <li>Roots: {{ result.roots|length }}</li>
+        <li>Managers: {{ result.managers|length }}</li>
+        <li>Cycle members: {{ result.cycles|length }}</li>
+      </ul>
+
+      <h3>Row-level errors</h3>
+      <table border="1" cellpadding="4">
+        <tr><th>Source Row</th><th>Employee ID</th><th>Errors</th><th>Codes</th></tr>
+        {% for r in result.errors %}
+        <tr>
+          <td>{{ r.source_row }}</td>
+          <td>{{ r.normalized.employee_id }}</td>
+          <td>{{ r.errors|join:", " }}</td>
+          <td>{{ r.error_codes|join:", " }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+
+      <h3>Accepted Employees</h3>
+      <table border="1" cellpadding="4">
+        <tr><th>Employee ID</th><th>Name</th><th>Email</th><th>Manager ID</th><th>In Cycle</th></tr>
+        {% for r in result.display_accepted %}
+        <tr>
+          <td>{{ r.normalized.employee_id }}</td>
+          <td>{{ r.normalized.employee_name }}</td>
+          <td>{{ r.normalized.email }}</td>
+          <td>{{ r.manager }}</td>
+          <td>{% if r.in_cycle %}yes{% else %}no{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </table>
+
+      <h3>Cycle members</h3>
+      <ul>
+        {% for c in result.cycles %}
+        <li>{{ c }}</li>
+        {% endfor %}
+      </ul>
+
+      <h3>Managers</h3>
+      <table border="1" cellpadding="4">
+        <tr><th>Manager ID</th><th>Name</th><th>Direct reports</th></tr>
+        {% for m in result.managers %}
+        <tr>
+          <td>{{ m.manager_id }}</td>
+          <td>{{ m.manager_name }}</td>
+          <td>{{ m.direct_reports }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+
+      <h3>Roots</h3>
+      <ul>
+        {% for r in result.roots %}
+        <li>{{ r.normalized.employee_id }} — {{ r.normalized.employee_name }}</li>
+        {% endfor %}
+      </ul>
+
+    {% endif %}
+  </body>
+</html>
